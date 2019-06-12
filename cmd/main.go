@@ -7,7 +7,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/metrics"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/storage"
@@ -20,10 +19,10 @@ var amount = flag.Int("amount", 30000, "set number of ACPs to generate")
 var instrument = flag.Bool("instrument", false, "enable OPA instrumentation")
 
 type prepareParams struct {
-	GetStore func() storage.Store
-	NoInline []ast.Ref
-	Query    string
-	Policy   string
+	GetStore        func() storage.Store
+	DisableInlining []string
+	Query           string
+	Policy          string
 }
 
 func main() {
@@ -41,9 +40,9 @@ func main() {
 				return inmem.NewFromObject(iambench.CreateExactACPs(*amount))
 			},
 			Query: "data.ory.exact.allow",
-			NoInline: []ast.Ref{
-				ast.MustParseRef("data.ory.exact.any_allow"),
-				ast.MustParseRef("data.ory.exact.any_deny"),
+			DisableInlining: []string{
+				"data.ory.exact.any_allow",
+				"data.ory.exact.any_deny",
 			},
 			Policy: iambench.ExactPolicy,
 		})
@@ -52,9 +51,9 @@ func main() {
 			GetStore: func() storage.Store {
 				return inmem.NewFromObject(iambench.CreateGlobACPs(*amount))
 			},
-			NoInline: []ast.Ref{
-				ast.MustParseRef("data.ory.glob.any_allow"),
-				ast.MustParseRef("data.ory.glob.any_deny"),
+			DisableInlining: []string{
+				"data.ory.glob.any_allow",
+				"data.ory.glob.any_deny",
 			},
 			Query:  "data.ory.glob.allow",
 			Policy: iambench.GlobPolicy,
@@ -107,7 +106,7 @@ func prepareQuery(ctx context.Context, params prepareParams) rego.PreparedEvalQu
 		rego.Query(params.Query),
 		rego.Module("test.rego", params.Policy),
 		rego.Store(params.GetStore()),
-		rego.NoInline(params.NoInline),
+		rego.DisableInlining(params.DisableInlining),
 		rego.Metrics(m),
 	).PrepareForEval(ctx, rego.WithPartialEval())
 	if err != nil {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/storage/inmem"
 )
@@ -76,9 +75,9 @@ func BenchmarkPartialEvalExact(b *testing.B) {
 				rego.Query("data.ory.exact.allow = true"),
 				rego.Module("test.rego", ExactPolicy),
 				rego.Store(store),
-				rego.NoInline([]ast.Ref{
-					ast.MustParseRef("data.ory.exact.any_allow"),
-					ast.MustParseRef("data.ory.exact.any_deny"),
+				rego.DisableInlining([]string{
+					"data.ory.exact.any_allow",
+					"data.ory.exact.any_deny",
 				}),
 			).PrepareForPartial(ctx)
 			if err != nil {
@@ -120,9 +119,9 @@ func BenchmarkEvalExact(b *testing.B) {
 				rego.Query("data.ory.exact.allow"),
 				rego.Module("test.rego", ExactPolicy),
 				rego.Store(store),
-				rego.NoInline([]ast.Ref{
-					ast.MustParseRef("data.ory.exact.any_allow"),
-					ast.MustParseRef("data.ory.exact.any_deny"),
+				rego.DisableInlining([]string{
+					"data.ory.exact.any_allow",
+					"data.ory.exact.any_deny",
 				}),
 			).PrepareForEval(ctx, rego.WithPartialEval())
 			if err != nil {
@@ -156,9 +155,9 @@ func TestEvalExact(t *testing.T) {
 		rego.Query("data.ory.exact.allow"),
 		rego.Module("test.rego", ExactPolicy),
 		rego.Store(store),
-		rego.NoInline([]ast.Ref{
-			ast.MustParseRef("data.ory.exact.any_allow"),
-			ast.MustParseRef("data.ory.exact.any_deny"),
+		rego.DisableInlining([]string{
+			"data.ory.exact.any_allow",
+			"data.ory.exact.any_deny",
 		}),
 	).PrepareForEval(ctx, rego.WithPartialEval())
 	if err != nil {
