@@ -32,6 +32,7 @@ func main() {
 	ctx := context.Background()
 
 	var prepared rego.PreparedEvalQuery
+	var input *iambench.Input
 
 	switch *flavor {
 	case "exact":
@@ -46,7 +47,12 @@ func main() {
 			},
 			Policy: iambench.ExactPolicy,
 		})
-	case "flavor":
+		input = &iambench.Input{
+			Subject:  "tenant:acmecorp:user:user.name@domain.com",
+			Action:   "check",
+			Resource: "tenant:acmecorp:thing0:resource-dead-beef-feed-face",
+		}
+	case "glob":
 		prepared = prepareQuery(ctx, prepareParams{
 			GetStore: func() storage.Store {
 				return inmem.NewFromObject(iambench.CreateGlobACPs(*amount))
@@ -58,14 +64,13 @@ func main() {
 			Query:  "data.ory.glob.allow",
 			Policy: iambench.GlobPolicy,
 		})
+		input = &iambench.Input{
+			Subject:  "tenant:acmecorp:user:user.name@domain.com",
+			Action:   "check",
+			Resource: "tenant:acmecorp:thing-deadbeef:resource-dead-beef-feed-face",
+		}
 	default:
-		log.Fatal("invalid value")
-	}
-
-	input := &iambench.Input{
-		Subject:  "tenant:acmecorp:user:user.name@domain.com",
-		Action:   "check",
-		Resource: "tenant:acmecorp:thing0:resource-dead-beef-feed-face",
+		log.Fatal("invalid flavor value")
 	}
 
 	m := metrics.New()
@@ -88,7 +93,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		} else if len(rs) != 1 || rs[0].Expressions[0].Value.(bool) {
-			log.Fatal("Expected deny")
+			log.Fatalf("Expected deny but got %v", rs)
 		}
 
 		m.Histogram("eval_ns").Update(int64(time.Since(tnow)))

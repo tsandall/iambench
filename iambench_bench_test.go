@@ -190,3 +190,46 @@ func TestEvalExact(t *testing.T) {
 		t.Fatalf("Expected allowed but got %v", rs)
 	}
 }
+
+func TestEvalGlob(t *testing.T) {
+	ctx := context.Background()
+	store := inmem.NewFromObject(CreateGlobACPs(30))
+	prepared, err := rego.New(
+		rego.Query("data.ory.glob.allow"),
+		rego.Module("test.rego", GlobPolicy),
+		rego.Store(store),
+		rego.DisableInlining([]string{
+			"data.ory.glob.any_allow",
+			"data.ory.glob.any_deny",
+		}),
+	).PrepareForEval(ctx, rego.WithPartialEval())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	denied := &Input{
+		Subject:  "tenant:acmecorp:user:user.name@domain.com",
+		Action:   "check",
+		Resource: "tenant:acmecorp:thingbad:resource-dead-beef-feed-face",
+	}
+
+	allowed := &Input{
+		Subject:  "tenant:acmecorp:user:user.name@domain.com",
+		Resource: "tenant:acmecorp:thing0:resource-1111-2222-3333-4444",
+		Action:   "check",
+	}
+
+	rs, err := prepared.Eval(ctx, rego.EvalInput(denied))
+	if err != nil {
+		t.Fatal(err)
+	} else if len(rs) != 1 || rs[0].Expressions[0].Value.(bool) {
+		t.Fatalf("Expected denied but got %v", rs)
+	}
+
+	rs, err = prepared.Eval(ctx, rego.EvalInput(allowed))
+	if err != nil {
+		t.Fatal(err)
+	} else if len(rs) != 1 || !rs[0].Expressions[0].Value.(bool) {
+		t.Fatalf("Expected allowed but got %v", rs)
+	}
+}

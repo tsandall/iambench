@@ -222,7 +222,7 @@ func CreateGlobACPs(amount int) map[string]interface{} {
 	return map[string]interface{}{
 		"store": map[string]interface{}{
 			"ory": map[string]interface{}{
-				"exact": &struct {
+				"glob": &struct {
 					Policies []*Policy `json:"policies"`
 					Roles    []string  `json:"roles"`
 				}{
