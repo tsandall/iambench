@@ -17,8 +17,10 @@ import (
 var flavor = flag.String("flavor", "exact", "set policy flavor to use (options: exact, glob)")
 var amount = flag.Int("amount", 30000, "set number of ACPs to generate")
 var instrument = flag.Bool("instrument", false, "enable OPA instrumentation")
+var partial = flag.Bool("partial", false, "enable partial evaluation")
 
 type prepareParams struct {
+	Partial         bool
 	GetStore        func() storage.Store
 	DisableInlining []string
 	Query           string
@@ -37,6 +39,7 @@ func main() {
 	switch *flavor {
 	case "exact":
 		prepared = prepareQuery(ctx, prepareParams{
+			Partial: *partial,
 			GetStore: func() storage.Store {
 				return inmem.NewFromObject(iambench.CreateExactACPs(*amount))
 			},
@@ -54,6 +57,7 @@ func main() {
 		}
 	case "glob":
 		prepared = prepareQuery(ctx, prepareParams{
+			Partial: *partial,
 			GetStore: func() storage.Store {
 				return inmem.NewFromObject(iambench.CreateGlobACPs(*amount))
 			},
@@ -103,23 +107,31 @@ func main() {
 
 func prepareQuery(ctx context.Context, params prepareParams) rego.PreparedEvalQuery {
 
-	log.Println("Running partial evaluation...")
+	log.Println("Preparing query...")
 
 	m := metrics.New()
+
+	var args []rego.PrepareOption
+
+	if params.Partial {
+		args = append(args, rego.WithPartialEval())
+		args = append(args, rego.WithNoInline(params.DisableInlining))
+	}
+
 	prepared, err := rego.New(
 		rego.Instrument(*instrument),
 		rego.Query(params.Query),
 		rego.Module("test.rego", params.Policy),
 		rego.Store(params.GetStore()),
-		rego.DisableInlining(params.DisableInlining),
 		rego.Metrics(m),
-	).PrepareForEval(ctx, rego.WithPartialEval())
+	).PrepareForEval(ctx, args...)
+
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	bs, _ := json.MarshalIndent(m, "", "  ")
-	log.Println("Partial evaluation metrics:", string(bs))
+	log.Println("Prepare metrics:", string(bs))
 
 	return prepared
 }
